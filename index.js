@@ -1,358 +1,202 @@
-class Table {
-    constructor (db,session,name) {
-        this.db = db;
-        this.session = session;
-        this.name = name;
-        if(this.session.device){ this.auth = " device = "+this.session.device;this.join =""; }
-        if(this.session.user) {this.auth = "d.user = "+this.session.user;this.join = " JOIN devices d ON c.device = d.id"; }
-        console.log(this.join,this.add)
-    }
-    async confirmAuth(id,action) {
-        const confirmation = await this.db.prepare(`SELECT id FROM ${this.name} `+this.join+" WHERE id = ? AND "+this.auth).bind(id).first();
-        if(confirmation) return action();
-        else throw new Error("No estas autorizado");
-    }
-}
-class Classroom extends Table {
-    constructor(db,session,name) {
-        super(db,session,name);
-    }
-    async getId(year, division, specialty) {
-        const classroom = await this.db.prepare(
-            `SELECT id FROM classes ${this.join} WHERE year = ? AND division = ? AND specialty = ? AND ${this.auth}`
-        ).bind(year, division, specialty).first();
+// Requerimientos
+import {Classroom, Student, Asistance} from "./models/models.js";
+const express = require("express");
+const cors = require("cors");
+const morgan = require("morgan");
+const bcrypt = require("bcrypt");
+const passport = require("passport");
+const session  = require('express-session');
+const LocalStrategy = require('passport-local').Strategy;
+let app = express(); 
+app.use(cors());
+app.use(morgan("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-        if (classroom) return classroom.id;
-        
-        const result = await this.db.prepare(
-            "INSERT INTO classes (year, division, specialty, device) VALUES (?, ?, ?, ?)"
-        ).bind(year, division, specialty, this.session.device).run();
-        
-        return result.lastInsertRowid;
-    }
-    
-    async remove(classId) {this.confirmAuth(classId,async () => await this.db.prepare("DELETE FROM classes WHERE id = ?").bind(classId).run());}
-    
-    async list() {
-        const rows = await this.db.prepare(`SELECT id FROM classes ${this.join} WHERE ${this.auth}`).all();
-        return rows.results;
-    }
-    
-    async listAttr(attr) {
-        const rows = await this.db.prepare(`SELECT DISTINCT ${attr} FROM classes ${this.join} WHERE ${this.auth}`).all();
-        return rows.results;
-    }
-}
-
-class Student extends Table{
-    constructor(db,session,name) {
-        super(db,session,name);
-    }
-    
-    async create({ lastname, name, classId }) {
-        await this.confirmAuth(classId,async function(){
-            const result = await this.db.prepare(
-                `INSERT INTO ${this.name} (lastname, name, class) VALUES (?, ?, ?)`
-            ).bind(lastname, name, classId).run();
-            return result.lastInsertRowid;
+// Manejo de sesiones
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy((name, password, done) => {
+    db.prepare("SELECT * FROM devices JOIN users ON devices.user = users.id WHERE name = ?").bind(name).first((err, device) => {
+        if (err) done(err);
+        if (!device.user) return done(null, {"fingerprint": device.fingerprint});
+        bcrypt.compare(password, device.password, (err, res) => {
+            if (err) done(err,false);
+            if (!res) return done(null, false);
+            else return done(null, device);
+        });
+    });
+}));
+passport.serializeUser((device, done) => {
+    if (!device.user) return done(null, {"fingerprint": device.fingerprint});
+    done(null, {"userId": device.user});
+});
+passport.deserializeUser((identifier, done) => {
+    if (identifier.userId) {
+        db.prepare("SELECT * FROM users WHERE id = ?").bind(identifier).first((err, user) => {
+            if (err) done(err);
+            done(null, user);
         });
     }
-    
-    async createMultiple(students, classId) {
-        const inserts = [];
-        const errors = [];
-        
-        for (const student of students) {
-            const [lastname, name] = student.split(" ");
-            try {
-                const id = await this.create({ lastname, name, classId });
-                inserts.push({ id });
-            } catch (err) {
-                errors.push({ student, error: err.message });
-            }
-        }
-
-        return { inserts, errors };
-    }
-    
-    async listByClassroom(classId) {
-        const rows = await this.db.prepare(
-            "SELECT id, lastname, name FROM students "+this.join+" WHERE class = ? AND "+this.auth+" ORDER BY lastname, name"
-        ).bind(classId).all();
-        return rows.results;
-    }
-    
-    async remove(studentId) {
-        const confirm = await this.db.prepare("SELECT id FROM students "+this.join+" WHERE id = ? AND "+this.auth).bind(studentId).first();
-        if(confirm) await this.db.prepare("DELETE FROM students WHERE id = ?").bind(studentId).run();
-        else throw new Error("No estas autorizado a eliminar estudiantes");
-    }
-}
-
-class Asistance extends Table{
-    constructor(db,session,name) {
-        super(db,session,name);
-    }
-    
-    async create(studentId, presence, options) {
-        this.confirmAuth(studentId,async function(){
-            let option;
-            if(options.class) option = "class";
-            if(options.subject) option = "subject";
-            await this.db.prepare(
-                `INSERT INTO asistances (student, presence, ${option}) VALUES (?, ?, ${options.class})`
-            ).bind(studentId, presence).run();
+    if(identifier.fingerprint) {
+        db.prepare("SELECT * FROM devices WHERE fingerprint = ?").bind(identifier).first((err, device) => {
+            if (err) done(err);
+            done(null, device);
         });
     }
-    
-    async listByDate(id, date, subject) {
-        let option = "s.class"
-        let joinSubjects = "";
-        if(subject) {joinSubjects = "JOIN subjects s ON a.subject = s.id"; option = "a.subject";}
-        const rows = await this.db.prepare(
-            `SELECT s.id as student, s.lastname, s.name, a.presence, a.created AS date, a.id
-            FROM asistances a
-            JOIN students s ON a.student = s.id
-            ${joinSubjects}
-            WHERE DATE(a.created) = ? AND ${option} = ?`
-        ).bind(id, date).all();
-        return rows.results;
-    }
-    async listByStudent(studentId) {
-        const rows = await this.db.prepare(
-            `SELECT s.id as student, s.lastname, s.name, a.presence, a.created AS date, a.id
-            FROM asistances a
-            JOIN students s ON a.student = s.id
-            WHERE a.student = ? 
-            AND a.id IN (
-            SELECT id
-            FROM (
-            SELECT id,
-            MAX(datetime(created)) OVER (PARTITION BY date(created)) AS max_date
-            FROM asistances
-            WHERE student = ?
-            ) t
-            WHERE datetime(created) = max_date
-            )
-            ORDER BY a.created DESC;`
-        ).bind(studentId, studentId).all();
-        return rows.results;
-    }
-    async remove(asistanceId) {this.confirmAuth(asistanceId,async () => await this.db.prepare("DELETE FROM asistances WHERE id = ?").bind(asistanceId).run());}
-            
-}
-function pathToRegex(path) {
-    const pattern = path.replace(/:([^/]+)/g, "([^/]+)");
-    return new RegExp(`^${pattern}$`);
-}
-function handleRoute(request, endpoint, method, handler) {
-    const regex = pathToRegex(endpoint);
-    const url = new URL(request.url);
-    let path = url.pathname;
-    const match = path.match(regex);
-    if (match && request.method === method) {
-        const params = match.splice(1);
-        return handler(...params);
-    }
-    return null;
-}
-function corsHeaders() {
-    return {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-    };
-}
-async function hashSha256(string) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(string);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return hashBuffer;
-}
-async function verifyPassword(password, dbHash) {
-    const loginHash = await hashSha256(password);
-    const dbHashArrayBuffer = hexToArrayBuffer(dbHash);
-    return crypto.subtle.timingSafeEqual(loginHash, dbHashArrayBuffer);
-}
-function hexToArrayBuffer(hexString) {
-    if (hexString.length % 2 !== 0) {
-        throw new Error('La cadena hexadecimal debe tener un número par de caracteres.');
-    }
-    const arrayBuffer = new Uint8Array(hexString.length / 2);
-    for (let i = 0; i < hexString.length / 2; i++) {
-        arrayBuffer[i] = parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
-    }
-    return arrayBuffer;
-}
-function bufferToHex(buffer) {
-    return [...new Uint8Array(buffer)]
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-async function createSession (db,deviceId) {
-    const sessionToken = crypto.randomUUID();
-    await db.prepare("INSERT INTO sessions (token, device) VALUES (?, ?)").bind(sessionToken, deviceId).run();
-    const loginHeaders = {...corsHeaders(),"Set-Cookie": `session=${sessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400`};
-    return loginHeaders;
-} 
-async function getSession(request, db) {
-    const cookie = request.headers.get("Cookie") || "";
-    const match = cookie.match(/session=([^;]+)/);
-    if (!match) return null;
-    const token = match[1];
-    const session = await db.prepare("SELECT device FROM sessions WHERE token = ?").bind(token).first();
-    const device = await db.prepare("SELECT user FROM devices WHERE id = ?").bind(session.device).first();
-    let result = {};
-    
-    if (device) result.user = device.user;
-    else result.device = session.device; 
-    return result;
-}
+});
 
-export default {
-    async fetch(request, env) {
-        const db = env.D1;
-        let body = {};
-        if (request.method === "POST" || request.method === "PUT") {  
-            try {
-                body = await request.json();
-            } catch {
-                body = {};
-            }
-        }
-        const session = getSession(request, db);
-        console.log(session);
-        let classroom = new Classroom(db,session);
-        let student = new Student(db,session);
-        let asistance = new Asistance(db,session);
-        const headers = corsHeaders();
-        try {
-            if (request.method === "OPTIONS") {return new Response(null, { status: 204, headers });}
-            let endpoints = [
-                handleRoute(request, "/", "GET", () => {
-                    return new Response("API funcionando", {status: 200, headers});
-                }),
-                handleRoute(request, "/device", "POST", async () => {
-                    const { fingerprint } = body;
-                    const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
-                    if(!device) result = await db.prepare("INSERT INTO devices (fingerprint) VALUES (?)").bind(fingerprint).run();
-                    else return new Response(JSON.stringify({ id: device.id, message: "Dispositivo ya registrado" }), {status: 200, headers});
-                    return new Response(JSON.stringify({ id: result.lastRowId, message: "Dispositivo creado con éxito" }), {status: 201, headers});
-                }),
-                handleRoute(request, "/register","POST", async () => {
-                    const { name, password, fingerprint } = body;
-                    try{
-                        const hashedPassword = await hashSha256(password);
-                        const hexHash = bufferToHex(hashedPassword);
-                        const user = await db.prepare("INSERT INTO users (name, password) VALUES (?, ?)").bind(name, hexHash).run();
-                        const userId = user.lastRowId;
-                        const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
-                        await db.prepare("UPDATE devices SET user = ? WHERE id = ?").bind(userId, device.id).run();
-                        const session = await createSession(db, device.id);
-                        const registerHeaders = {...corsHeaders(),"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400`}
-                        return new Response(JSON.stringify({ id: userId, message: "Usuario creado con éxito" }), {status: 201, headers: registerHeaders});
-                    } catch (err) {console.log(err);return new Response(JSON.stringify({ error: err.message }), {status: 400, headers});}
-                }),
-                handleRoute(request, "/login", "POST", async () => {
-                    const { name, password, fingerprint } = body;
-                    
-                    const user = await db.prepare("SELECT * FROM users WHERE name = ?").bind(name).first();
-                    if (!user) return new Response(JSON.stringify({ error: "Usuario no encontrado" }), { status: 404, headers });
-                    
-                    const dbHash = user.password;
-                    const valid = await verifyPassword(password, dbHash);
-                    if (!valid) return new Response(JSON.stringify({ error: "Contraseña incorrecta" }), { status: 401, headers });
-                    
-                    const device = await db.prepare("SELECT user FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
-                    if(device.user == null) await db.prepare("UPDATE devices SET user = ? WHERE id = ?").bind(user.id, fingerprint).run();                
-                    const session = await createSession(db, device.id);
-                    const loginHeaders = {...corsHeaders(),"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400`};
-                    return new Response(JSON.stringify({ message: "Login exitoso"}), { status: 200, headers: loginHeaders });
-                }),
-                // -------------------- POST /students --------------------
-                handleRoute(request, "/students", "POST", async () => {
-                    let { year, division, specialty, students } = body
-                    students = students.split("\n");
-                    let classID = await classroom.getId(year, division, specialty);
-                    let { inserts, errors } = await student.createMultiple(students, classID);
-                    return new Response({ message: "Todos los estudiantes insertados correctamente", inserts : inserts }, { status: 201, headers })
-                }),
-                // -------------------- POST /student --------------------
-                handleRoute(request, "/student", "POST", async () => {
-                    let { lastname, name, classId } = body
-                    let id = await student.create({ lastname, name, classId });
-                    return new Response(JSON.stringify([{ id : id }]), { status: 201, headers  })
-                }),
-                // -------------------- GET /students/:classId --------------------
-                handleRoute(request, "/students/:classId", "GET", async (classId) => {
-                    let students = await student.listByClassroom(classId);
-                    return new Response(JSON.stringify(students), { status: 200, headers  })
-                }),
-                // -------------------- DELETE /students/:id -------------------
-                handleRoute(request, "/students/:id", "DELETE", async (id) => {
-                    await student.remove(id);
-                    return new Response(JSON.stringify({ message: "Estudiante eliminado" }), { status: 200, headers  })
-                }),
-                // -------------------- GET /years --------------------
-                handleRoute(request, "/years", "GET", async () => {
-                    let years = await classroom.listAttr("year");
-                    return new Response(JSON.stringify(years), { status: 200, headers })
-                }),
-                // -------------------- GET /divisions --------------------
-                handleRoute(request, "/divisions", "GET", async () => {
-                    let divisions = await classroom.listAttr("division");
-                    return new Response(JSON.stringify(divisions), { status: 200, headers })
-                }),
-                // -------------------- GET /specialties --------------------
-                handleRoute(request, "/specialties", "GET", async () => {
-                    let specialties = await classroom.listAttr("specialty");
-                    return new Response(JSON.stringify(specialties), { status: 200, headers })
-                }),
-                // -------------------- GET /class/:year/:division/:specialty --------------------
-                handleRoute(request, "/class/:year/:division/:specialty", "GET", async (year,division,specialty) => {
-                    console.log(year,division,specialty);
-                    let classId = await classroom.getId(year, division, specialty);
-                    return new Response(JSON.stringify([{ id: classId }]), { status: 200, headers })
-                }),
-                // -------------------- GET /classes --------------------
-                handleRoute(request, "/classes", "GET", async () => {
-                    let classes = await classroom.list();
-                    console.log(classes);
-                    return new Response(JSON.stringify(classes), { status: 200, headers })
-                }),
-                // -------------------- DELETE /class/:id --------------------
-                handleRoute(request, "/class/:id", "DELETE", async (id) => {
-                    await classroom.remove(id);
-                    return new Response(JSON.stringify({ message: "Clase eliminada" }), { status: 200, headers })
-                }),
-                // -------------------- POST /asistances/:studentId/:presence --------------------
-                handleRoute(request, "/asistances/", "POST", async () => {
-                    let {studentId, presence} = body;
-                    await asistance.create(studentId, presence);
-                    return new Response(JSON.stringify({ message: "Asistencia creada", presence: presence }), { status: 200, headers })
-                }),
-                // -------------------- GET /asistances/:classId/:date --------------------
-                handleRoute(request, "/asistances/:classId/:date", "GET", async (classId,date) => {
-                    let asistances = await asistance.listByDate(classId, date);
-                    return new Response(JSON.stringify(asistances), { status: 200, headers })
-                }),
-                // -------------------- GET /student/asistances/:student --------------------
-                handleRoute(request, "/student/asistances/:student", "GET", async (id) => {
-                    let asistances = await asistance.listByStudent(id);
-                    return new Response(JSON.stringify(asistances), { status: 200, headers })
-                }),
-                // -------------------- DELETE /asistances/:id --------------------
-                handleRoute(request, "/asistances/:id", "DELETE", async (id) => {
-                    await asistance.remove(id);
-                    return new Response(JSON.stringify({ message: "Asistencia eliminada" }), { status: 200, headers })
-                })
-            ];
-            for(let endpoint of endpoints) {
-                if (endpoint) {
-                    return endpoint;
-                }
-            }
-            return new Response("Not Found", { status: 404, headers })
-        } catch(err) {return new Response(JSON.stringify({ error: err.message }), { status: 500, headers })}
+
+const port = process.env.PORT || 3000;
+const db = process.env.DB
+
+let classroom = new Classroom(db);
+let student = new Student(db);
+let asistance = new Asistance(db);
+
+app.get("/", (req, res) => {
+    res.status(200).send("API funcionando");
+});
+
+app.post("/device", async (req, res) => {
+    const { fingerprint } = req.body;
+    const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
+    if (!device) {
+        result = await db.prepare("INSERT INTO devices (fingerprint) VALUES (?)").bind(fingerprint).run();
+        res.status(201).json({ id: result.lastRowId, message: "Dispositivo creado con éxito" });
+    } else {
+        res.status(200).json({ id: device.id, message: "Dispositivo ya registrado" });
     }
-}
+});
+
+app.post("/register", async (req, res) => {
+    const { name, password, fingerprint } = req.body;
+    try {
+        const hexHash = bcrypt.genSalt(10,(err, salt) => {
+            if(err) throw err;
+            console.log(salt);
+            const hash = bcrypt.hash(password, salt, (err, hash) => {
+                if (err) throw err;
+                return hash;
+            });
+            return hash;
+        });
+        res.status(201).json(user);
+        const user = await db.prepare("INSERT INTO users (name, password) VALUES (?, ?)").bind(name, hexHash).run();
+        const userId = user.lastRowId;
+        const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
+        await db.prepare("UPDATE devices SET user = ? WHERE id = ?").bind(userId, device.id).run();
+        const session = await createSession(db, device.id);
+        const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
+        res.status(201).set(headers).json({ id: userId, message: "Usuario creado con éxito" });
+    } catch (err) {
+        console.log(err);
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post("/login", async (req, res) => {
+    const { name, password, fingerprint } = req.body;
+    const user = await db.prepare("SELECT * FROM users WHERE name = ?").bind(name).first();
+    if (!user) return res.status(404).set(headers).json({ error: "Usuario no encontrado" });
+    const dbHash = user.password;
+    const valid = await bcrypt.compare(password, dbHash);
+    if (!valid) return res.status(401).json({ error: "Contraseña incorrecta" });
+    const device = await db.prepare("SELECT user FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
+    if (device.user == null) await db.prepare("UPDATE devices SET user = ? WHERE fingerprint = ?").bind(user.id, fingerprint).run();
+    const session = await createSession(db, device.id);
+    const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
+    res.status(200).set(headers).json({ message: "Login exitoso" });
+});
+
+app.post("/students", async (req, res) => {
+    let { year, division, specialty, students } = req.body;
+    students = students.split("\n");
+    let classID = await classroom.getId(year, division, specialty);
+    let { inserts, errors } = await student.createMultiple(students, classID);
+    res.status(201).set(headers).json({ message: "Todos los estudiantes insertados correctamente", inserts });
+});
+
+app.post("/student", async (req, res) => {
+    let { lastname, name, classId } = req.body;
+    let id = await student.create({ lastname, name, classId });
+    res.status(201).set(headers).json([{ id }]);
+});
+
+app.get("/students/:classId", async (req, res) => {
+    const { classId } = req.params;
+    let students = await student.listByClassroom(classId);
+    res.status(200).set(headers).json(students);
+});
+
+app.delete("/students/:id", async (req, res) => {
+    const { id } = req.params;
+    await student.remove(id);
+    res.status(200).set(headers).json({ message: "Estudiante eliminado" });
+});
+
+app.get("/years", async (req, res) => {
+    let years = await classroom.listAttr("year");
+    res.status(200).set(headers).json(years);
+});
+
+app.get("/divisions", async (req, res) => {
+    let divisions = await classroom.listAttr("division");
+    res.status(200).set(headers).json(divisions);
+});
+
+app.get("/specialties", async (req, res) => {
+    let specialties = await classroom.listAttr("specialty");
+    res.status(200).set(headers).json(specialties);
+});
+
+app.get("/class/:year/:division/:specialty", async (req, res) => {
+    const { year, division, specialty } = req.params;
+    console.log(year, division, specialty);
+    let classId = await classroom.getId(year, division, specialty);
+    res.status(200).set(headers).json([{ id: classId }]);
+});
+
+app.get("/classes", async (req, res) => {
+    let classes = await classroom.list();
+    console.log(classes);
+    res.status(200).set(headers).json(classes);
+});
+
+app.delete("/class/:id", async (req, res) => {
+    const { id } = req.params;
+    await classroom.remove(id);
+    res.status(200).set(headers).json({ message: "Clase eliminada" });
+});
+
+app.post("/asistances", async (req, res) => {
+    let { studentId, presence } = req.body;
+    await asistance.create(studentId, presence);
+    res.status(200).set(headers).json({ message: "Asistencia creada", presence });
+});
+
+app.get("/asistances/:classId/:date", async (req, res) => {
+    const { classId, date } = req.params;
+    let asistances = await asistance.listByDate(classId, date);
+    res.status(200).set(headers).json(asistances);
+});
+
+app.get("/student/asistances/:student", async (req, res) => {
+    const { student } = req.params;
+    let asistances = await asistance.listByStudent(student);
+    res.status(200).set(headers).json(asistances);
+});
+
+app.delete("/asistances/:id", async (req, res) => {
+    const { id } = req.params;
+    await asistance.remove(id);
+    res.status(200).set(headers).json({ message: "Asistencia eliminada" });
+});
+
+
+app.listen(port, () => console.log(`API funcionando en el puerto ${port}`));
