@@ -5,15 +5,15 @@ class Table {
         this.auth = auth; // { "devices.fingerprint" : "hash" } || { "devices.user" : "id" }
         this.from = `FROM ${this.name} JOIN devices ON ${this.name}.device = devices.fingerprint`
     }
-    objectsToString(array, separator = " AND ") {
+    objectsToString(object, separator = " AND ") {
         let list = []
-        for(let item of array) {
-            if(typeof item === "object"){
+        for(let item of object) {
+            if(!Array.isArray(object)){
                 for(let [key, value] in Object.entries(item)) {
                     list.push(`${key}='${value}'`);
                 }
             }
-            else if(typeof item == "string") list.push(item);
+            if(typeof item == "string") list.push(item);
         }
         const str = list.join(separator);
         return str
@@ -80,7 +80,7 @@ class Student extends Table {
         for (const student of students) {
             const [lastname, name] = student.split(" ");
             try {
-                const id = await this.create({ lastname, name, classId });
+                const id = await this.create([lastname, name, classId]);
                 inserts.push({ id });
             } catch (err) {
                 errors.push({ student, error: err.message });
@@ -99,17 +99,16 @@ class Asistance extends Table {
     constructor(db,name,auth) {
         super(db,name,auth);
     }
-    async listByDate(id, date, subject) {
-        let option = "s.class"
-        let joinSubjects = "";
-        if(subject) {joinSubjects = "JOIN subjects s ON a.subject = s.id"; option = "a.subject";}
-        const rows = await this.db.prepare(
-            `SELECT s.id as student, s.lastname, s.name, a.presence, a.created AS date, a.id
-            FROM asistances a
-            JOIN students s ON a.student = s.id
-            ${joinSubjects}
-            WHERE DATE(a.created) = ? AND ${option} = ?`
-        ).bind(id, date).all();
+    async listByDate(type, date) {
+        /*
+        type: {"subject" : id} || {"student.class": id}
+        */
+        let options = {};
+        options.fields = `students.id AS student, students.lastname, students.name, ${this.name}.presence, ${this.name}.created AS date, ${this.name}.id`;
+        options.JOIN = `JOIN students ON ${this.name}.student = students.id`;
+        options.WHERE = {"DATE(created)": date};
+        Object.assign(options.WHERE,type);
+        const rows = await this.db.prepare(this.query("SELECT",options)).all();
         return rows.results;
     }
     async listByStudent(studentId) {
@@ -133,4 +132,4 @@ class Asistance extends Table {
         return rows.results;
     }
 }
-export { Classroom, Student, Asistance};
+export {Student, Asistance};
