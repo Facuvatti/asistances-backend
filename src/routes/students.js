@@ -1,7 +1,7 @@
-import {Table, Student, addAuth} from "./models.js";
+import {Table, Student, addAuth} from "../models.js";
 const express = require("express");
 const router = express.Router();
-const db = process.env.DB
+const db = process.env.D1
 router.use(addAuth([new Table(db,"classroom"), new Student(db,"student")]));
 
 router.post("/students", async (req, res) => {

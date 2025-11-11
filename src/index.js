@@ -11,8 +11,8 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-const port = process.env.PORT || 3000;
-const db = process.env.DB
+const port = process.env.PORT;
+const db = process.env.D1
 
 // Manejo de sesiones
 app.use(session({
@@ -64,4 +64,4 @@ app.use("/",require("./routes/classes.js"));
 app.use("/",require("./routes/students.js"));
 app.use("/",require("./routes/asistances.js"));
 
-app.listen(port, () => console.log(`API funcionando en el puerto ${port}`));
+app.listen(port, () => console.log(`API funcionando`));

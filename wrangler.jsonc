@@ -1,0 +1,44 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "asistances-backend",
+	"main": "src/index.js",
+	"compatibility_date": "2025-10-26",
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"compatibility_flags": [
+		"nodejs_compat"
+	], //Importante para poder importar cosas de node
+	"d1_databases": [
+		{
+			"binding": "D1", // Nombre de la conexión en tu worker (el index.js) ej: const db = env.DB
+			"database_name": "attendance"
+		}
+	],
+	"vars": { "port": 3000 }
+	/**
+	 * Colocacion inteligente
+	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 */
+	// "placement": { "mode": "smart" }
+	/**
+	/**
+	 * Variables de entorno
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+	 */
+	/**
+	 * Note: Usar secretos para almacenar datos sensibles
+	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 */
+	/**
+	 * Activos estaticos 
+	 * https://developers.cloudflare.com/workers/static-assets/binding/
+	 */
+	// "assets": { "directory": "./public/", "binding": "ASSETS" }
+	/**
+	 * Conexiones de servicio (comunicarse con otros workers)
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 */
+	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+}
