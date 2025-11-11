@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const db = process.env.DB
 router.post("/device", async (req, res) => {
     const { fingerprint } = req.body;
     const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
@@ -12,7 +12,7 @@ router.post("/device", async (req, res) => {
     }
 });
 
-router.post("/register", async (req, res) => {
+router.post("/account/register", async (req, res) => {
     const { name, password, fingerprint } = req.body;
     try {
         const hexHash = bcrypt.genSalt(10,(err, salt) => {
@@ -31,14 +31,14 @@ router.post("/register", async (req, res) => {
         await db.prepare("UPDATE devices SET user = ? WHERE id = ?").bind(userId, device.id).run();
         const session = await createSession(db, device.id);
         const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
-        res.status(201).set(headers).json({ id: userId, message: "Usuario creado con éxito" });
+        res.status(201).set(headers).json({ message: "Usuario creado con éxito" });
     } catch (err) {
         console.log(err);
         res.status(400).json({ error: err.message });
     }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/account/login", async (req, res) => {
     const { name, password, fingerprint } = req.body;
     const user = await db.prepare("SELECT * FROM users WHERE name = ?").bind(name).first();
     if (!user) return res.status(404).set(headers).json({ error: "Usuario no encontrado" });
@@ -49,6 +49,15 @@ router.post("/login", async (req, res) => {
     if (device.user == null) await db.prepare("UPDATE devices SET user = ? WHERE fingerprint = ?").bind(user.id, fingerprint).run();
     const session = await createSession(db, device.id);
     const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
-    res.status(200).set(headers).json({ message: "Login exitoso" });
+    res.status(200).set(headers).json({ message: "Logueado exitosamente" });
+});
+app.post('/account/logout', (req, res, next) => {
+  req.logout(err => {
+    if (err) return next(err);
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.json({ loggedOut: true });
+    });
+  });
 });
 module.exports = router;

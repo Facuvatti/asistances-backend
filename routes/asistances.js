@@ -1,5 +1,7 @@
+import {Asistance} from "./models.js";
 const express = require("express");
 const router = express.Router();
+let asistance = new Asistance(db, "asistances",req.session.passport);
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;
     await asistance.create(studentId, presence);
