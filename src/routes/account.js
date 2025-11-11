@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = process.env.D1
+const db = process.env.DB
 router.post("/device", async (req, res) => {
     const { fingerprint } = req.body;
     const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();
