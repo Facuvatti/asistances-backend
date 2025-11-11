@@ -132,4 +132,13 @@ class Asistance extends Table {
         return rows.results;
     }
 }
-export {Table,Student, Asistance};
+function addAuth(tables){
+    tables.forEach(table => {
+        table.auth = req.session.passport;
+    });
+    return (req, res, next) => {
+    req.tables = { classroom, student };
+    next();
+    }
+}
+export {Table,Student, Asistance,addAuth};

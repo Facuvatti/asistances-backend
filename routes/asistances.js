@@ -1,28 +1,32 @@
-import {Asistance} from "./models.js";
+import {Asistance, addAuth} from "./models.js";
 const express = require("express");
 const router = express.Router();
-let asistance = new Asistance(db, "asistances",req.session.passport);
+router.use(addAuth([new Asistance(db, "asistances")]));
+
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;
-    await asistance.create(studentId, presence);
+    await req.tables.asistance.create(studentId, presence);
     res.status(200).set(headers).json({ message: "Asistencia creada", presence });
 });
 
-router.get("/asistances/:classId/:date", async (req, res) => {
-    const { classId, date } = req.params;
-    let asistances = await asistance.listByDate(classId, date);
+router.get("/asistances", async (req, res) => {
+    const { classId, date, subject} = req.body;
+    type;
+    if(subject) type = {"subject" : subject};
+    if(classId) type = {"student.class" : classId};
+    let asistances = await req.tables.asistance.listByDate(type, date);
     res.status(200).set(headers).json(asistances);
 });
 
 router.get("/asistances/student/:id", async (req, res) => {
     const { id } = req.params;
-    let asistances = await asistance.listByStudent(id);
+    let asistances = await req.tables.asistance.listByStudent(id);
     res.status(200).set(headers).json(asistances);
 });
 
 router.delete("/asistances/:id", async (req, res) => {
     const { id } = req.params;
-    await asistance.remove(id);
+    await req.tables.asistance.remove(id);
     res.status(200).set(headers).json({ message: "Asistencia eliminada" });
 });
 module.exports = router;
