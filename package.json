@@ -1,5 +1,5 @@
 {
-  "name": "asistencias",
+  "name": "asistances-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,15 +9,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Facuvatti/asistencias.git"
+    "url": "git+https://github.com/Facuvatti/asistances-backend.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Facuvatti/asistencias/issues"
+    "url": "https://github.com/Facuvatti/asistances-backend/issues"
   },
-  "homepage": "https://github.com/Facuvatti/asistencias#readme",
+  "homepage": "https://github.com/Facuvatti/asistances-backend#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",

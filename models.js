@@ -132,4 +132,4 @@ class Asistance extends Table {
         return rows.results;
     }
 }
-export {Student, Asistance};
+export {Table,Student, Asistance};
