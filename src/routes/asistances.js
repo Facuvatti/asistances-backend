@@ -30,4 +30,4 @@ router.delete("/asistances/:id", async (req, res) => {
     await req.tables.asistance.remove(id);
     res.status(200).set(headers).json({ message: "Asistencia eliminada" });
 });
-module.exports = router;
+export default router;

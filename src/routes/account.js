@@ -69,4 +69,4 @@ app.post('/account/logout', (req, res) => {
         });
     });
 });
-module.exports = router;
+export default router;

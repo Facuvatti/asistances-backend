@@ -43,4 +43,4 @@ router.delete("/classes/:id", async (req, res) => {
     await req.tables.classroom.remove(id);
     res.status(200).set(headers).json({ message: "Clase eliminada" });
 });
-module.exports = router;
+export default router;

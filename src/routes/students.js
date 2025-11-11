@@ -31,5 +31,4 @@ router.delete("/students/:id", async (req, res) => {
     res.status(200).set(headers).json({ message: "Estudiante eliminado" });
 });
 
-
-module.exports = router;
+export default router;
