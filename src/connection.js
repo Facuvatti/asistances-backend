@@ -19,4 +19,4 @@ async function connect() {
         throw err; // Lanza el error para que el código que llama lo maneje
     }
 }
-export {connect};
+export default {connect};

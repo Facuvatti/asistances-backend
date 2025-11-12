@@ -1,5 +1,7 @@
 import express from "express";
 import database from "../connection.js";
+import dotenv from "dotenv"
+dotenv.config()
 const router = express.Router();
 const db = await database.connect();
 router.post("/device", async (req, res) => {
