@@ -5,12 +5,13 @@ import morgan from "morgan";
 import bcrypt from "bcrypt";
 import passport from "passport";
 import session from "express-session";
-import Strategy from "passport-local"
-import account from "./routes/account.js"
-import classes from"./routes/classes.js"
-import students from"./routes/students.js"
-import asistances from "./routes/asistances.js"
-import dotenv from "dotenv"
+import Strategy from "passport-local";
+import account from "./routes/account.js";
+import classes from"./routes/classes.js";
+import students from"./routes/students.js";
+import asistances from "./routes/asistances.js";
+import database from "./connection.js";
+import dotenv from "dotenv";
 dotenv.config()
 const LocalStrategy = Strategy;
 let app = express(); 
@@ -19,7 +20,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 const port = process.env.PORT;
-const db = process.env.D1
+const db = await database.connect()
 
 // Manejo de sesiones
 app.use(session({

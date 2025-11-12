@@ -1,6 +1,7 @@
 import express from "express";
+import database from "./connection.js";
 const router = express.Router();
-const db = process.env.DB
+const db = await database.connect()
 router.post("/device", async (req, res) => {
     const { fingerprint } = req.body;
     const device = await db.prepare("SELECT id FROM devices WHERE fingerprint = ?").bind(fingerprint).first();

@@ -1,7 +1,8 @@
 import {Table, Student, addAuth} from "../models.js";
 import express from "express";
+import database from "./connection.js";
 const router = express.Router();
-const db = process.env.Db
+const db = await database.connect()
 router.use(addAuth({classroom: new Table(db,"classroom"), student:new Student(db,"student")}));
 
 router.post("/students", async (req, res) => {
