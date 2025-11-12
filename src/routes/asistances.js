@@ -1,5 +1,5 @@
 import {Asistance, addAuth} from "../models.js";
-const express = require("express");
+import express from "express";
 const router = express.Router();
 const db = process.env.DB
 router.use(addAuth([new Asistance(db, "asistances")]));

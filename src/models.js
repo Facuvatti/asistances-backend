@@ -133,10 +133,10 @@ class Asistance extends Table {
     }
 }
 function addAuth(tables){
-    tables.forEach(table => {
-        table.auth = req.session.passport;
-    });
     return (req, res, next) => {
+        tables.forEach(table => {
+            table.auth = req.session.passport;
+        });
     req.tables = { classroom, student };
     next();
     }

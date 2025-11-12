@@ -1,11 +1,16 @@
 // Requerimientos
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
-const bcrypt = require("bcrypt");
-const passport = require("passport");
-const session  = require('express-session');
-const LocalStrategy = require('passport-local').Strategy;
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
+import bcrypt from "bcrypt";
+import passport from "passport";
+import session from "express-session";
+import Strategy from "passport-local"
+import account from "./routes/account.js"
+import classes from"./routes/classes.js"
+import students from"./routes/students.js"
+import asistances from "./routes/asistances.js"
+const LocalStrategy = Strategy;
 let app = express(); 
 app.use(cors());
 app.use(morgan("dev"));
@@ -59,9 +64,9 @@ passport.deserializeUser((identifier, done) => {
 app.get("/", (req, res) => {
     res.status(200).send("API funcionando");
 });
-app.use("/",require("./routes/account.js"));
-app.use("/",require("./routes/classes.js"));
-app.use("/",require("./routes/students.js"));
-app.use("/",require("./routes/asistances.js"));
+app.use("/",require(account));
+app.use("/",require(classes));
+app.use("/",require(students));
+app.use("/",require(asistances));
 
 app.listen(port, () => console.log(`API funcionando`));

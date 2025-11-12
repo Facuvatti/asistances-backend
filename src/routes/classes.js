@@ -1,5 +1,5 @@
 import {Table, addAuth} from "../models.js"
-const express = require("express");
+import express from "express";
 const router = express.Router();
 const db = process.env.DB
 

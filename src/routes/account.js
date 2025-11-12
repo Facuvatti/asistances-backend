@@ -1,4 +1,4 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
 const db = process.env.DB
 router.post("/device", async (req, res) => {
@@ -59,7 +59,7 @@ router.post("/account/login", async (req, res) => {
     const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
     res.status(200).set(headers).json({ message: "Logueado exitosamente" });
 });
-app.post('/account/logout', (req, res) => {
+router.post('/account/logout', (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'No estas autenticado' });
     req.logout(err => {
         if (err) return res.status(500).json({ error: 'Error cerrando sesión' });
