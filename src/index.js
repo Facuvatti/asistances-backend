@@ -10,6 +10,8 @@ import account from "./routes/account.js"
 import classes from"./routes/classes.js"
 import students from"./routes/students.js"
 import asistances from "./routes/asistances.js"
+import dotenv from "dotenv"
+dotenv.config()
 const LocalStrategy = Strategy;
 let app = express(); 
 app.use(cors());
@@ -62,11 +64,13 @@ passport.deserializeUser((identifier, done) => {
 
 
 app.get("/", (req, res) => {
-    res.status(200).send("API funcionando");
+    let add ="";
+    if (req.body) add = JSON.stringify(req.body);
+    res.status(200).send("API funcionando: "+add);
 });
 app.use("/",account);
 app.use("/",classes);
 app.use("/",students);
 app.use("/",asistances);
 
-app.listen(port, () => console.log(`API funcionando`));
+app.listen(port, () => console.log(`API funcionando en el puerto ${port}`));
