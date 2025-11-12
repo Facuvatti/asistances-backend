@@ -2,7 +2,7 @@ import {Asistance, addAuth} from "../models.js";
 import database from "./connection.js";
 import express from "express";
 const router = express.Router();
-const db = await database.connect()
+const db = await database.connect();
 router.use(addAuth({asistance: new Asistance(db, "asistances")}));
 
 router.post("/asistances", async (req, res) => {
@@ -12,10 +12,10 @@ router.post("/asistances", async (req, res) => {
 });
 
 router.get("/asistances", async (req, res) => {
-    const { classId, date, subject} = req.body;
+    const { courseId, date, subject} = req.body;
     type;
     if(subject) type = {"subject" : subject};
-    if(classId) type = {"student.class" : classId};
+    if(courseId) type = {"student.course" : courseId};
     let asistances = await req.tables.asistance.listByDate(type, date);
     res.status(200).set(headers).json(asistances);
 });

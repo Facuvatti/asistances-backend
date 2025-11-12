@@ -1,50 +1,50 @@
-PRAGMA foreign_keys = ON;
-
+ALTER DATABASE 
+    CHARACTER SET utf8mb4 
+    COLLATE utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    password TEXT NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     UNIQUE(name)
 );
 CREATE TABLE IF NOT EXISTS devices (
-    fingerprint TEXT NOT NULL PRIMARY KEY,
-    user INTEGER,
+    fingerprint VARCHAR(255) NOT NULL PRIMARY KEY,
+    user INT,
     FOREIGN KEY (user) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS classes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    year INTEGER NOT NULL,
-    division INTEGER NOT NULL,
-    specialty TEXT NOT NULL,
-    user INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS courses (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    year SMALLINT NOT NULL,
+    division SMALLINT NOT NULL,
+    specialty VARCHAR(255) NOT NULL,
+    user INT NOT NULL,
     FOREIGN KEY (user) REFERENCES users(id),
     UNIQUE(year, division, specialty, user)
 );
 
 CREATE TABLE IF NOT EXISTS subjects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    teacher TEXT,
-    hours INTEGER,
-    class INTEGER NOT NULL,
-    FOREIGN KEY (class) REFERENCES classes(id) ON DELETE CASCADE,
-    UNIQUE(name,class)
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    teacher VARCHAR(255),
+    hours INT,
+    course INT NOT NULL,
+    FOREIGN KEY (course) REFERENCES courses(id) ON DELETE CASCADE,
+    UNIQUE(name,course)
 );
 CREATE TABLE IF NOT EXISTS students (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    lastname TEXT NOT NULL,
-    name TEXT NOT NULL,
-    class INTEGER NOT NULL,
-    FOREIGN KEY (class) REFERENCES classes(id) ON DELETE CASCADE
-    UNIQUE(dni),
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    lastname VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    course INT NOT NULL,
+    FOREIGN KEY (course) REFERENCES courses(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS asistances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student INTEGER NOT NULL,
-    subject INTEGER,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    student INT NOT NULL,
+    subject INT,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    presence TEXT NOT NULL,
+    presence ENUM("P", "T", "A", "RA") NOT NULL,
     FOREIGN KEY (student) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE
 );

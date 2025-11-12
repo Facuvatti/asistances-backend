@@ -50,20 +50,20 @@ class Table {
     
     }
     async create(values) {
-        const result = await this.db.prepare(this.query("INSERT INTO", {"fields": values})).run();
+        const result = await this.db.query(this.query("INSERT INTO", {"fields": values}));
         return result.lastInsertRowid;
     }
     async getId(conditions) {
-        const row = await this.db.prepare(this.query("SELECT", {"WHERE": conditions,"fields":"id"})).first();
+        const row = await this.db.query(this.query("SELECT", {"WHERE": conditions,"fields":"id"})).first();
         return row.id;
     }
-    async remove(id) {await this.db.prepare(this.query("DELETE", {"WHERE": "id = " + id})).run();}
+    async remove(id) {await this.db.query(this.query("DELETE", {"WHERE": "id = " + id}));}
     async list() {
-        const rows = await this.db.prepare(this.query("SELECT")).all();
+        const rows = await this.db.query(this.query("SELECT"));
         return rows.results;
     }
     async listDistinct(condition) {
-        const rows = await this.db.prepare(this.query("SELECT DISTINCT", {"fields": condition})).all();
+        const rows = await this.db.query(this.query("SELECT DISTINCT", {"fields": condition}));
         return rows.results;
     }
 }
@@ -90,7 +90,7 @@ class Student extends Table {
         return { inserts, errors };
     }    
     async listByClassroom(classId) {
-        const rows = await this.db.prepare(this.query("SELECT",{fields:"id, lastname, name", "WHERE": classId, "ORDER BY": "lastname, name"})).all();
+        const rows = await this.db.query(this.query("SELECT",{fields:"id, lastname, name", "WHERE": classId, "ORDER BY": "lastname, name"}));
         return rows.results;
     }
 }
@@ -108,11 +108,11 @@ class Asistance extends Table {
         options.JOIN = `JOIN students ON ${this.name}.student = students.id`;
         options.WHERE = {"DATE(created)": date};
         Object.assign(options.WHERE,type);
-        const rows = await this.db.prepare(this.query("SELECT",options)).all();
+        const rows = await this.db.query(this.query("SELECT",options));
         return rows.results;
     }
     async listByStudent(studentId) {
-        const rows = await this.db.prepare(
+        const rows = await this.db.query(
             `SELECT s.id as student, s.lastname, s.name, a.presence, a.created AS date, a.id
             FROM asistances a
             JOIN students s ON a.student = s.id
@@ -127,8 +127,10 @@ class Asistance extends Table {
                     ) t
                     WHERE datetime(created) = max_date
                     )
-                    ORDER BY a.created DESC;`
-        ).bind(studentId, studentId).all();
+                    ORDER BY a.created DESC;
+            `,
+            [studentId, studentId]
+        );
         return rows.results;
     }
 }

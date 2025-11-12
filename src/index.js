@@ -7,7 +7,7 @@ import passport from "passport";
 import session from "express-session";
 import Strategy from "passport-local";
 import account from "./routes/account.js";
-import classes from"./routes/classes.js";
+import courses from"./routes/courses.js";
 import students from"./routes/students.js";
 import asistances from "./routes/asistances.js";
 import database from "./connection.js";
@@ -31,15 +31,16 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new LocalStrategy((name, password, done) => {
-    db.prepare("SELECT * FROM devices JOIN users ON devices.user = users.id WHERE name = ?").bind(name).first((err, device) => {
-        if (err) done(err);
+    try {
+        let device = db.query("SELECT * FROM devices JOIN users ON devices.user = users.id WHERE name = ?", [name])
+        device = device[0];
         if (!device.user) return done(null, {"fingerprint": device.fingerprint});
         bcrypt.compare(password, device.password, (err, res) => {
             if (err) done(err,false);
             if (!res) return done(null, false);
             else return done(null, device);
         });
-    });
+    } catch (err) {done(err);}
 }));
 passport.serializeUser((device, done) => {
     if (!device.user) return done(null, {"fingerprint": device.fingerprint});
@@ -47,16 +48,19 @@ passport.serializeUser((device, done) => {
 });
 passport.deserializeUser((identifier, done) => {
     if (identifier.userId) {
-        db.prepare("SELECT * FROM users WHERE id = ?").bind(identifier).first((err, user) => {
-            if (err) done(err);
+        try {
+            let user = db.query("SELECT * FROM users WHERE id = ?", [identifier])
+            user = user[0];
             done(null, user);
-        });
+        } catch (err) {done(err);}
     }
     if(identifier.fingerprint) {
-        db.prepare("SELECT * FROM devices WHERE fingerprint = ?").bind(identifier).first((err, device) => {
+        try {
+            let device = db.query("SELECT * FROM devices WHERE fingerprint = ?", [identifier])
+            device = device[0];
             if (err) done(err);
             done(null, device);
-        });
+        } catch (err) {done(err);}
     }
 });
 
@@ -70,7 +74,7 @@ app.get("/", (req, res) => {
     res.status(200).send("API funcionando: "+add);
 });
 app.use("/",account);
-app.use("/",classes);
+app.use("/",courses);
 app.use("/",students);
 app.use("/",asistances);
 

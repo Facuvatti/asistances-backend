@@ -5,7 +5,7 @@ dotenv.config()
 async function connect() {
     try {
         const pool = mariadb.createPool({
-            host: process.env.db_host,
+            host: proccess.env.db_host,
             user: proccess.env.db_user,     
             password: proccess.env.db_password,  
             database: proccess.env.db_name, 
