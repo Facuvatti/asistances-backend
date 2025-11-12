@@ -64,9 +64,9 @@ passport.deserializeUser((identifier, done) => {
 app.get("/", (req, res) => {
     res.status(200).send("API funcionando");
 });
-app.use("/",require(account));
-app.use("/",require(classes));
-app.use("/",require(students));
-app.use("/",require(asistances));
+app.use("/",account);
+app.use("/",classes);
+app.use("/",students);
+app.use("/",asistances);
 
 app.listen(port, () => console.log(`API funcionando`));
