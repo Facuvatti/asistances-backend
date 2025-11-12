@@ -12,7 +12,16 @@ router.post("/device", async (req, res) => {
     }
 });
 router.get("/account", async (req, res) => {
-    if(req.session.passport.user) res.status(200).send(true);
+    try {
+        if(req.session.passport.user) res.status(200).send(true);
+        else res.status(200).send(false);
+    } catch (err) {
+        if(err.message == "Cannot read properties of undefined (reading 'user')") res.status(200).send(false);
+        else {
+            console.log(err);
+            res.status(400).json({ error: err.message });
+        }
+    }
 });
 router.get("/account/profile",async (req, res) => {
     res.status(200).json(req.session.passport);

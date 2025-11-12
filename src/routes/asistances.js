@@ -2,7 +2,7 @@ import {Asistance, addAuth} from "../models.js";
 import express from "express";
 const router = express.Router();
 const db = process.env.DB
-router.use(addAuth([new Asistance(db, "asistances")]));
+router.use(addAuth({asistance: new Asistance(db, "asistances")}));
 
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;

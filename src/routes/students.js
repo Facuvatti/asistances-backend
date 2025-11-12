@@ -2,7 +2,7 @@ import {Table, Student, addAuth} from "../models.js";
 import express from "express";
 const router = express.Router();
 const db = process.env.Db
-router.use(addAuth([new Table(db,"classroom"), new Student(db,"student")]));
+router.use(addAuth({classroom: new Table(db,"classroom"), student:new Student(db,"student")}));
 
 router.post("/students", async (req, res) => {
     let { year, division, specialty, students } = req.body;

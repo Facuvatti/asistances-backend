@@ -1,8 +1,8 @@
 class Table {
-    constructor(db, name, auth) {
+    constructor(db, name) {
         this.db = db;
         this.name = name;
-        this.auth = auth; // { "devices.fingerprint" : "hash" } || { "devices.user" : "id" }
+        this.auth = null; // { "devices.fingerprint" : "hash" } || { "devices.user" : "id" }
         this.from = `FROM ${this.name} JOIN devices ON ${this.name}.device = devices.fingerprint`
     }
     objectsToString(object, separator = " AND ") {
@@ -69,8 +69,8 @@ class Table {
 }
 
 class Student extends Table {
-    constructor(db,name,auth) {
-        super(db,name,auth);
+    constructor(db,name) {
+        super(db,name);
     }
 
     async createMultiple(students, classId) {
@@ -96,8 +96,8 @@ class Student extends Table {
 }
     
 class Asistance extends Table {
-    constructor(db,name,auth) {
-        super(db,name,auth);
+    constructor(db,name) {
+        super(db,name);
     }
     async listByDate(type, date) {
         /*
@@ -134,11 +134,9 @@ class Asistance extends Table {
 }
 function addAuth(tables){
     return (req, res, next) => {
-        tables.forEach(table => {
-            table.auth = req.session.passport;
-        });
-    req.tables = { classroom, student };
-    next();
+        for(let table of Object.values(tables)) table.auth = req.session.passport;
+        req.tables = tables;
+        next();
     }
 }
-export {Table,Student, Asistance,addAuth};
+export {Table,Student, Asistance, addAuth};
