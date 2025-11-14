@@ -8,7 +8,7 @@ router.use(addAuth({asistance: new Asistance(db, "asistances")}));
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;
     await req.tables.asistance.create(studentId, presence);
-    res.status(200).set(headers).json({ message: "Asistencia creada", presence });
+    res.status(200).json({ message: "Asistencia creada", presence });
 });
 
 router.get("/asistances", async (req, res) => {
@@ -17,18 +17,18 @@ router.get("/asistances", async (req, res) => {
     if(subject) type = {"subject" : subject};
     if(courseId) type = {"student.course" : courseId};
     let asistances = await req.tables.asistance.listByDate(type, date);
-    res.status(200).set(headers).json(asistances);
+    res.status(200).json(asistances);
 });
 
 router.get("/asistances/student/:id", async (req, res) => {
     const { id } = req.params;
     let asistances = await req.tables.asistance.listByStudent(id);
-    res.status(200).set(headers).json(asistances);
+    res.status(200).json(asistances);
 });
 
 router.delete("/asistances/:id", async (req, res) => {
     const { id } = req.params;
     await req.tables.asistance.remove(id);
-    res.status(200).set(headers).json({ message: "Asistencia eliminada" });
+    res.status(200).json({ message: "Asistencia eliminada" });
 });
 export default router;

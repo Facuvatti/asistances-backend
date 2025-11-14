@@ -2,51 +2,58 @@ class Table {
     constructor(db, name) {
         this.db = db;
         this.name = name;
-        this.auth = null; // { "devices.fingerprint" : "hash" } || { "devices.user" : "id" }
-        this.from = `FROM ${this.name} JOIN devices ON ${this.name}.device = devices.fingerprint`
+        this.user = null;
+        this.from = `FROM ${this.name} JOIN users ON ${this.name}.user = users.id`
     }
     objectsToString(object, separator = " AND ") {
-        let list = []
-        for(let item of object) {
-            if(!Array.isArray(object)){
-                for(let [key, value] in Object.entries(item)) {
-                    list.push(`${key}='${value}'`);
-                }
+        let list = [];
+        if (Array.isArray(object)) {
+            for(let value of object) {
+                if (!isNaN(value)) list.push(value);
+                else list.push(`'${value}'`);
             }
-            if(typeof item == "string") list.push(item);
         }
+
+        else if(typeof object == "object") {
+            for(let [key, value] of Object.entries(object)) {
+                list.push(`${key}='${value}'`);
+            }
+        }
+        if(typeof object == "string") return object;
         const str = list.join(separator);
         return str
+         
     }
-    query(action, options = {"FROM" : "", "WHERE" : this.auth, "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":""}) {
+    query(action, options = {}) {
+        let firstWord;
+        let Query = "";
+        options = {...{"FROM" : "", "WHERE" : "", "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":""},...options};
+        if(this.user) options["WHERE"] = {...options["WHERE"], ...this.user};
         const verb = action.split(" ")[0];
-        for(let [key, value] in Object.entries(options)) {
+        for(let [key, value] of Object.entries(options)) {
+            console.log(key, value);
             if(key == "JOIN") continue;
-            if(typeof value == "string") options[key] = `${key} ${value}`;
-            else if(Array.isArray(value)) {
-                if(key == "fields" || "INSERT INTO") options[key] = this.objectsToString(value, ", ");
-                if(verb == "UPDATE") options[key] = this.objectsToString(value, ", ");      
-                if(key == "WHERE") options[key] = this.objectsToString(value, " AND ");  
-            }
-            if(key == "WHERE" && options.FROM) options[key] = `${value} AND ${this.auth}`;
-            if(key != "fields") options[key] = `${key} ${value}`;           
+            if(["fields","GROUP BY","HAVING" ,"ORDER BY"].includes(key) || ["INSERT", "UPDATE"].includes(verb)) options[key] = this.objectsToString(value, ", ");
+            if(key == "WHERE") options[key] = this.objectsToString(value, " AND ");  
+            if(typeof options[key] == "string") firstWord = options[key].split(" ")[0];
+            if( firstWord!= key && value != "" && key != "fields") options[key] = key + " " + options[key];
         }
         if(verb == "SELECT"){
-            let Query = `${action} ${options.fields || "*"} ${options.FROM || this.from} ${options.JOIN} ${options.WHERE} ${options["GROUP BY"]} ${options.HAVING} ${options["ORDER BY"]}`;
-            return Query;
+            Query = `${action} ${options.fields || this.name+".*"} ${options.FROM || this.from} ${options.JOIN || ""} ${options.WHERE || ""} ${options["GROUP BY"] || ""} ${options.HAVING || ""} ${options["ORDER BY"] || ""}`;
+
         }
         else if (verb == "UPDATE"){
-            let Query = `${action} ${this.name} SET ${options.fields} ${options.WHERE}`;
-            return Query;
+            Query = `${action} ${this.name} SET ${options.fields} ${options.WHERE}`;
         }
         else if (verb == "DELETE"){
-            let Query = `${action} ${this.name} ${options.WHERE}`;
-            return Query;
+            Query = `${action} ${this.name} ${options.WHERE}`;
         }
-        else if (verb == "INSERT INTO") {
-            let Query = `${action} ${this.name} VALUES (${options.fields})`;
-            return Query;
+        else if (verb == "INSERT") {
+            Query = `${action} ${this.name} VALUES (${options.fields}, ${this.user})`;
+            
         }
+        console.log(Query,options);
+        return Query;
     
     }
     async create(values) {
@@ -54,8 +61,9 @@ class Table {
         return result.lastInsertRowid;
     }
     async getId(conditions) {
-        const row = await this.db.query(this.query("SELECT", {"WHERE": conditions,"fields":"id"})).first();
-        return row.id;
+        const row = await this.db.query(this.query("SELECT", {"WHERE": conditions,"fields":"id"}));
+        console.log(row)
+        return row.results[0];
     }
     async remove(id) {await this.db.query(this.query("DELETE", {"WHERE": "id = " + id}));}
     async list() {
@@ -73,14 +81,14 @@ class Student extends Table {
         super(db,name);
     }
 
-    async createMultiple(students, classId) {
+    async createMultiple(students, courseId) {
         const inserts = [];
         const errors = [];
         
         for (const student of students) {
             const [lastname, name] = student.split(" ");
             try {
-                const id = await this.create([lastname, name, classId]);
+                const id = await this.create([lastname, name, courseId]);
                 inserts.push({ id });
             } catch (err) {
                 errors.push({ student, error: err.message });
@@ -89,8 +97,8 @@ class Student extends Table {
         
         return { inserts, errors };
     }    
-    async listByClassroom(classId) {
-        const rows = await this.db.query(this.query("SELECT",{fields:"id, lastname, name", "WHERE": classId, "ORDER BY": "lastname, name"}));
+    async listByCourse(courseId) {
+        const rows = await this.db.query(this.query("SELECT",{fields:"id, lastname, name", "WHERE": courseId, "ORDER BY": "lastname, name"}));
         return rows.results;
     }
 }
@@ -101,7 +109,7 @@ class Asistance extends Table {
     }
     async listByDate(type, date) {
         /*
-        type: {"subject" : id} || {"student.class": id}
+        type: {"subject" : id} || {"student.course": id}
         */
         let options = {};
         options.fields = `students.id AS student, students.lastname, students.name, ${this.name}.presence, ${this.name}.created AS date, ${this.name}.id`;
@@ -136,7 +144,7 @@ class Asistance extends Table {
 }
 function addAuth(tables){
     return (req, res, next) => {
-        for(let table of Object.values(tables)) table.auth = req.session.passport;
+        for(let table of Object.values(tables)) table.user = req.session.passport;
         req.tables = tables;
         next();
     }

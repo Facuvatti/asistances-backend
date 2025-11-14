@@ -7,11 +7,6 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     UNIQUE(name)
 );
-CREATE TABLE IF NOT EXISTS devices (
-    fingerprint VARCHAR(255) NOT NULL PRIMARY KEY,
-    user INT,
-    FOREIGN KEY (user) REFERENCES users(id)
-);
 
 CREATE TABLE IF NOT EXISTS courses (
     id INT PRIMARY KEY AUTO_INCREMENT,

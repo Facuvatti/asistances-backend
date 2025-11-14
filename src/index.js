@@ -16,7 +16,7 @@ dotenv.config()
 const LocalStrategy = Strategy;
 let app = express(); 
 app.use(cors());
-app.use(morgan("dev"));
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 const port = process.env.PORT;
@@ -31,42 +31,26 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new LocalStrategy((name, password, done) => {
-    try {
-        let device = db.query("SELECT * FROM devices JOIN users ON devices.user = users.id WHERE name = ?", [name])
-        device = device[0];
-        if (!device.user) return done(null, {"fingerprint": device.fingerprint});
-        bcrypt.compare(password, device.password, (err, res) => {
+    try{
+        let user = db.query("SELECT * FROM users WHERE name = ?", [name]);
+        user = user[0];
+        bcrypt.compare(password, user.password, (err, response) => {
             if (err) done(err,false);
-            if (!res) return done(null, false);
-            else return done(null, device);
+            if (!response) return done(null, false);
+            else return done(null, user);
         });
-    } catch (err) {done(err);}
+    } catch (err) {
+        done(err, false);
+    }
 }));
-passport.serializeUser((device, done) => {
-    if (!device.user) return done(null, {"fingerprint": device.fingerprint});
-    done(null, {"userId": device.user});
+passport.serializeUser((user, done) => {
+    done(null, user.id);
 });
-passport.deserializeUser((identifier, done) => {
-    if (identifier.userId) {
-        try {
-            let user = db.query("SELECT * FROM users WHERE id = ?", [identifier])
-            user = user[0];
-            done(null, user);
-        } catch (err) {done(err);}
-    }
-    if(identifier.fingerprint) {
-        try {
-            let device = db.query("SELECT * FROM devices WHERE fingerprint = ?", [identifier])
-            device = device[0];
-            if (err) done(err);
-            done(null, device);
-        } catch (err) {done(err);}
-    }
+passport.deserializeUser((userId, done) => {
+    let user = db.query("SELECT * FROM users WHERE id = ?", [userId]);
+    user = user[0];
+    done(null, user);
 });
-
-
-
-
 
 app.get("/", (req, res) => {
     let add ="";

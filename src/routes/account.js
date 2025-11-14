@@ -1,24 +1,20 @@
 import express from "express";
 import database from "../connection.js";
+import bcrypt from "bcrypt";
+import passport from "passport";
 const router = express.Router();
 const db = await database.connect();
-router.post("/device", async (req, res) => {
-    const { fingerprint } = req.body;
-    let device = await db.query("SELECT id FROM devices WHERE fingerprint = ?", [fingerprint]);
-    device = device[0];
-    if (!device) {
-        result = await db.query("INSERT INTO devices (fingerprint) VALUES (?)", [fingerprint]);
-        res.status(201).json({ id: result.lastRowId, message: "Dispositivo creado con éxito" });
-    } else {
-        res.status(200).json({ id: device.id, message: "Dispositivo ya registrado" });
-    }
-});
+function redirectIfLoggedIn(req, res, next) {
+    if (req.isAuthenticated()) return res.status(409).json({ error: 'Ya estás autenticado' });
+    next();
+}
 router.get("/account", async (req, res) => {
     try {
-        if(req.session.passport.user) res.status(200).send(true);
-        else res.status(200).send(false);
+        req.isAuthenticated();
+        if(req.user) res.status(200).json({ user: true});
+        else res.status(200).json({user:false});
     } catch (err) {
-        if(err.message == "Cannot read properties of undefined (reading 'user')") res.status(200).send(false);
+        if(err.message == "Cannot read properties of undefined (reading 'user')") res.status(200).json({user:false});
         else {
             console.log(err);
             res.status(400).json({ error: err.message });
@@ -28,50 +24,29 @@ router.get("/account", async (req, res) => {
 router.get("/account/profile",async (req, res) => {
     res.status(200).json(req.session.passport);
 });
-router.post("/account/register", async (req, res) => {
-    if (req.isAuthenticated && req.isAuthenticated()) res.status(403).json({ error: 'Ya estás autenticado' });
-  
-    const { name, password, fingerprint } = req.body;
+router.post("/account/register",redirectIfLoggedIn, async (req, res) => {
+    const { name, password } = req.body;
+    const exists = await db.query("select * from users where name = ?", [name]);
+    if (exists[0]) return res.status(409).json({ error: "existe" });
     try {
-        const hexHash = bcrypt.genSalt(10,(err, salt) => {
-            if(err) throw err;
-            console.log(salt);
-            const hash = bcrypt.hash(password, salt, (err, hash) => {
-                if (err) throw err;
-                return hash;
-            });
-            return hash;
-        });
-        res.status(201).json(user);
+        const salt = await bcrypt.genSalt(10);
+        const hexHash = await bcrypt.hash(password, salt);
         const user = await db.query("INSERT INTO users (name, password) VALUES (?, ?)", [name, hexHash]);
         const userId = user.lastRowId;
-        let device = await db.query("SELECT id FROM devices WHERE fingerprint = ?", [fingerprint]);
-        device = device[0];
-        await db.query("UPDATE devices SET user = ? WHERE id = ?", [userId, device.id]);
-        const session = await createSession(db, device.id);
-        const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
-        res.status(201).set(headers).send("Usuario creado con éxito");
+        req.login({ id: userId }, err => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ registered: true, userId, message:"Usuario creado correctamente"});
+        });
     } catch (err) {
         console.log(err);
         res.status(400).json({ error: err.message });
+        next(err);
     }
 });
 
-router.post("/account/login", async (req, res) => {
-    if (req.isAuthenticated && req.isAuthenticated()) res.status(403).json({ error: 'Ya estás autenticado' });
-    const { name, password, fingerprint } = req.body;
-    let user = await db.query("SELECT * FROM users WHERE name = ?", [name]);
-    user = user[0];
-    if (!user) return res.status(404).set(headers).json({ error: "Usuario no encontrado" });
-    const dbHash = user.password;
-    const valid = await bcrypt.compare(password, dbHash);
-    if (!valid) return res.status(401).json({ error: "Contraseña incorrecta" });
-    let device = await db.query("SELECT user FROM devices WHERE fingerprint = ?", [fingerprint]);
-    device = device[0];
-    if (device.user == null) await db.query("UPDATE devices SET user = ? WHERE fingerprint = ?", [user.id, fingerprint]);
-    const session = await createSession(db, device.id);
-    const headers = {"Set-Cookie": `session=${session.token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400` };
-    res.status(200).set(headers).json({ message: "Logueado exitosamente" });
+router.post("/account/login",redirectIfLoggedIn,passport.authenticate('local'), async (req, res) => {
+    if (!req.user) return res.status(404).json({ error: "no existe" });
+    res.status(200).json({ message: "Iniciaste sesión correctamente",loggedIn: true, user: req.user  });
 });
 router.post('/account/logout', (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'No estas autenticado' });

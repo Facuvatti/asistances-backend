@@ -4,7 +4,6 @@ import dotenv from "dotenv"
 dotenv.config()
 async function connect() {
     try {
-        console.log(process.env.db_password);
         const pool = mariadb.createPool({
             host: process.env.db_host,
             port: process.env.db_port,
