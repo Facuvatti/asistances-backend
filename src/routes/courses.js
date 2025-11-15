@@ -1,10 +1,9 @@
-import {Table, addAuth} from "../models.js"
+import {Table, addTables} from "../models.js"
 import database from "../connection.js";
 import express from "express";
 const router = express.Router();
 const db = await database.connect();
-const Courses = new Table(db, "courses");
-router.use(addAuth({Courses}));
+router.use(addTables({Courses: new Table(db, "courses")}));
 router.get("/courses/years", async (req, res) => {
     let years = await req.tables.Courses.listDistinct("year");
     res.status(200).json(years);

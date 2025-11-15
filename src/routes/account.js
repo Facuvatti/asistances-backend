@@ -10,19 +10,21 @@ function redirectIfLoggedIn(req, res, next) {
 }
 router.get("/account", async (req, res) => {
     try {
-        req.isAuthenticated();
-        if(req.user) res.status(200).json({ user: true});
-        else res.status(200).json({user:false});
+        let user = false;
+        if(req.user) user = true;
+        res.status(200).json({ logged: req.isAuthenticated(), user: user || false });
     } catch (err) {
         if(err.message == "Cannot read properties of undefined (reading 'user')") res.status(200).json({user:false});
         else {
-            console.log(err);
+            console.error(err);
             res.status(400).json({ error: err.message });
         }
     }
 });
 router.get("/account/profile",async (req, res) => {
-    res.status(200).json(req.session.passport);
+    if(req.isAuthenticated()){
+        res.status(200).json(req.user);
+    } else res.status(401).json({ error: 'No estas autenticado' });
 });
 router.post("/account/register",redirectIfLoggedIn, async (req, res) => {
     const { name, password } = req.body;
@@ -32,8 +34,8 @@ router.post("/account/register",redirectIfLoggedIn, async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hexHash = await bcrypt.hash(password, salt);
         const user = await db.query("INSERT INTO users (name, password) VALUES (?, ?)", [name, hexHash]);
-        const userId = user.lastRowId;
-        req.login({ id: userId }, err => {
+
+        req.login(user, err => {
             if (err) return res.status(500).json({ error: err.message });
             res.status(201).json({ registered: true, userId, message:"Usuario creado correctamente"});
         });
@@ -43,10 +45,21 @@ router.post("/account/register",redirectIfLoggedIn, async (req, res) => {
         next(err);
     }
 });
+router.post("/account/login",redirectIfLoggedIn, (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+        if (err) return next(err);
+        if (!user) return res.status(401).json({ error: "no existe" , message: info?.message || "Login fallido" });
 
-router.post("/account/login",redirectIfLoggedIn,passport.authenticate('local'), async (req, res) => {
-    if (!req.user) return res.status(404).json({ error: "no existe" });
-    res.status(200).json({ message: "Iniciaste sesión correctamente",loggedIn: true, user: req.user  });
+        req.login(user, (err) => {
+            if (err) return next(err);
+
+            return res.status(200).json({
+                message: "Iniciaste sesión correctamente",
+                logged: true,
+                user: user.id
+            });
+        });
+    })(req, res, next);
 });
 router.post('/account/logout', (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'No estas autenticado' });
@@ -54,7 +67,7 @@ router.post('/account/logout', (req, res) => {
         if (err) return res.status(500).json({ error: 'Error cerrando sesión' });
         req.session.destroy(() => {
             res.clearCookie('connect.sid');
-            res.status(204).send(true);
+            res.status(204).json({ logged: false, message:"Sesion cerrada correctamente" });
         });
     });
 });

@@ -3,7 +3,6 @@ class Table {
         this.db = db;
         this.name = name;
         this.user = null;
-        this.from = `FROM ${this.name} JOIN users ON ${this.name}.user = users.id`
     }
     objectsToString(object, separator = " AND ") {
         let list = [];
@@ -28,7 +27,8 @@ class Table {
         let firstWord;
         let Query = "";
         options = {...{"FROM" : "", "WHERE" : "", "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":""},...options};
-        if(this.user) options["WHERE"] = {...options["WHERE"], ...this.user};
+        if(this.user) throw new Error("Es necesario un usuario");
+        options["WHERE"] = {...options["WHERE"], ...this.user};
         const verb = action.split(" ")[0];
         for(let [key, value] of Object.entries(options)) {
             console.log(key, value);
@@ -39,7 +39,7 @@ class Table {
             if( firstWord!= key && value != "" && key != "fields") options[key] = key + " " + options[key];
         }
         if(verb == "SELECT"){
-            Query = `${action} ${options.fields || this.name+".*"} ${options.FROM || this.from} ${options.JOIN || ""} ${options.WHERE || ""} ${options["GROUP BY"] || ""} ${options.HAVING || ""} ${options["ORDER BY"] || ""}`;
+            Query = `${action} ${options.fields || this.name+".*"} ${options.FROM || `FROM ${this.name}`} ${options.JOIN || ""} ${options.WHERE || ""} ${options["GROUP BY"] || ""} ${options.HAVING || ""} ${options["ORDER BY"] || ""}`;
 
         }
         else if (verb == "UPDATE"){
@@ -52,7 +52,7 @@ class Table {
             Query = `${action} ${this.name} VALUES (${options.fields}, ${this.user})`;
             
         }
-        console.log(Query,options);
+        console.log(Query);
         return Query;
     
     }
@@ -142,11 +142,12 @@ class Asistance extends Table {
         return rows.results;
     }
 }
-function addAuth(tables){
+function addTables(tables){
     return (req, res, next) => {
-        for(let table of Object.values(tables)) table.user = req.session.passport;
+        console.log(req.user);
+        for(let table of Object.values(tables)) table.user = {user:req.user.id};
         req.tables = tables;
         next();
     }
 }
-export {Table,Student, Asistance, addAuth};
+export {Table,Student, Asistance, addTables};

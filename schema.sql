@@ -24,22 +24,28 @@ CREATE TABLE IF NOT EXISTS subjects (
     teacher VARCHAR(255),
     hours INT,
     course INT NOT NULL,
+    user INT NOT NULL,
     FOREIGN KEY (course) REFERENCES courses(id) ON DELETE CASCADE,
-    UNIQUE(name,course)
+    FOREIGN KEY (user) REFERENCES users(id),
+    UNIQUE(name,course,user)
 );
 CREATE TABLE IF NOT EXISTS students (
     id INT PRIMARY KEY AUTO_INCREMENT,
     lastname VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     course INT NOT NULL,
-    FOREIGN KEY (course) REFERENCES courses(id) ON DELETE CASCADE
+    user INT NOT NULL,
+    FOREIGN KEY (course) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (user) REFERENCES users(id)
 );
 CREATE TABLE IF NOT EXISTS asistances (
     id INT PRIMARY KEY AUTO_INCREMENT,
     student INT NOT NULL,
     subject INT,
+    user INT NOT NULL,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     presence ENUM("P", "T", "A", "RA") NOT NULL,
     FOREIGN KEY (student) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE
+    FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user) REFERENCES users(id)
 );

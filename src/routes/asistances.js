@@ -1,9 +1,9 @@
-import {Asistance, addAuth} from "../models.js";
+import {Asistance, addTables} from "../models.js";
 import database from "../connection.js";
 import express from "express";
 const router = express.Router();
 const db = await database.connect();
-router.use(addAuth({asistance: new Asistance(db, "asistances")}));
+router.use(addTables({asistance: new Asistance(db, "asistances")}));
 
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;
