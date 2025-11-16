@@ -37,7 +37,7 @@ router.post("/account/register",redirectIfLoggedIn, async (req, res) => {
 
         req.login(user, err => {
             if (err) return res.status(500).json({ error: err.message });
-            res.status(201).json({ registered: true, userId, message:"Usuario creado correctamente"});
+            res.status(201).json({ registered: true, user, message:"Usuario creado correctamente"});
         });
     } catch (err) {
         console.log(err);

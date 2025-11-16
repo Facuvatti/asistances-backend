@@ -5,7 +5,7 @@ import morgan from "morgan";
 import bcrypt from "bcrypt";
 import passport from "passport";
 import session from "express-session";
-import MySQLStore from "express-mysql-session";
+// import MySQLStore from "express-mysql-session";
 import Strategy from "passport-local";
 import account from "./routes/account.js";
 import courses from"./routes/courses.js";
@@ -24,7 +24,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 const port = process.env.PORT;
 const db = await database.connect()
-const SessionStore = MySQLStore(session);
+// const SessionStore = MySQLStore(session);
 // const store = new SessionStore({
 //     host: process.env.db_host,
 //     port: process.env.db_port,
