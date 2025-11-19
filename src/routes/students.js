@@ -3,15 +3,17 @@ import express from "express";
 import database from "../connection.js";
 const router = express.Router();
 const db = await database.connect();
-router.use(addTables({course: new Table(db,"courses"), student:new Student(db,"student")}));
+router.use(addTables({course: new Table(db,"courses"), student:new Student(db,"students")}));
 
 router.post("/students", async (req, res) => {
     let { year, division, specialty, students } = req.body;
     students = students.split("\n");
-    let courseId = await req.tables.course.create([year, division, specialty]);
+    let courseId = await req.tables.course.create({year, division, specialty});
+    console.log("ID del curso: ", courseId);
     let { inserts, errors } = await req.tables.student.createMultiple(students, courseId);
+    console.log(inserts,errors);
     if(!errors)res.status(201).json({ message: "Todos los estudiantes insertados correctamente", inserts });
-    else res.status(400).json({ message: "Hubo estudiantes no insertados", errors });
+    else res.status(400).json({ message: "Hubo estudiantes no insertados", ...errors });
 });
 
 router.post("/student", async (req, res) => {

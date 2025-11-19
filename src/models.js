@@ -4,13 +4,15 @@ class Table {
         this.name = name;
         this.user = null;
     }
-    objectsToString(object, separator = " AND ") {
+    objectsToString(object, separator = " AND ", quotes = true) {
         let list = [];
         if (Array.isArray(object)) {
-            for(let value of object) {
-                if (!isNaN(value)) list.push(value);
-                else list.push(`'${value}'`);
-            }
+            if(quotes) {
+                for(let value of object) {
+                    if (!isNaN(value)) list.push(value);
+                    else list.push(`'${value}'`);
+                }
+            } else list = object;
         }
 
         else if(typeof object == "object") {
@@ -26,17 +28,17 @@ class Table {
     query(action, options = {}) {
         let firstWord;
         let Query = "";
-        options = {...{"FROM" : "", "WHERE" : "", "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":""},...options};
-        if(this.user) throw new Error("Es necesario un usuario");
-        options["WHERE"] = {...options["WHERE"], ...this.user};
+        options = {...{"FROM" : "", "WHERE" : "", "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":"","columns":[]},...options};
+        if(!this.user) throw new Error("Es necesario un usuario");
         const verb = action.split(" ")[0];
+        options["WHERE"] = {...options["WHERE"], ...{user : this.user}};
         for(let [key, value] of Object.entries(options)) {
-            console.log(key, value);
             if(key == "JOIN") continue;
             if(["fields","GROUP BY","HAVING" ,"ORDER BY"].includes(key) || ["INSERT", "UPDATE"].includes(verb)) options[key] = this.objectsToString(value, ", ");
+            if(key == "columns") options[key] = this.objectsToString(value, ", ", false);
             if(key == "WHERE") options[key] = this.objectsToString(value, " AND ");  
             if(typeof options[key] == "string") firstWord = options[key].split(" ")[0];
-            if( firstWord!= key && value != "" && key != "fields") options[key] = key + " " + options[key];
+            if(firstWord != key && value != "" && !["fields","columns"].includes(key)) options[key] = key + " " + options[key];
         }
         if(verb == "SELECT"){
             Query = `${action} ${options.fields || this.name+".*"} ${options.FROM || `FROM ${this.name}`} ${options.JOIN || ""} ${options.WHERE || ""} ${options["GROUP BY"] || ""} ${options.HAVING || ""} ${options["ORDER BY"] || ""}`;
@@ -49,16 +51,24 @@ class Table {
             Query = `${action} ${this.name} ${options.WHERE}`;
         }
         else if (verb == "INSERT") {
-            Query = `${action} ${this.name} VALUES (${options.fields}, ${this.user})`;
+            Query = `${action} ${this.name} (${options.columns}, user) VALUES (${options.fields}, ${this.user})`;
             
         }
         console.log(Query);
         return Query;
     
     }
-    async create(values) {
-        const result = await this.db.query(this.query("INSERT INTO", {"fields": values}));
-        return result.lastInsertRowid;
+
+    async create(row) {
+        console.log(row);
+        const exists = await this.db.query(this.query("SELECT", {"WHERE": row,"fields":"id"}));
+        if (exists.length == 0 || !exists) {
+            const result = await this.db.query(this.query("INSERT INTO", {"fields":Object.values(row), "columns": Object.keys(row)}));
+            console.log(result, result[0].insertId);
+            return result[0].insertId;
+        }
+        console.log("Ya existia");
+        return exists[0].id;
     }
     async getId(conditions) {
         const row = await this.db.query(this.query("SELECT", {"WHERE": conditions,"fields":"id"}));
@@ -81,14 +91,15 @@ class Student extends Table {
         super(db,name);
     }
 
-    async createMultiple(students, courseId) {
+    async createMultiple(students, course) {
         const inserts = [];
         const errors = [];
         
         for (const student of students) {
             const [lastname, name] = student.split(" ");
             try {
-                const id = await this.create([lastname, name, courseId]);
+                const id = await this.create({lastname, name, course});
+                console.log(id);
                 inserts.push({ id });
             } catch (err) {
                 errors.push({ student, error: err.message });
@@ -144,9 +155,11 @@ class Asistance extends Table {
 }
 function addTables(tables){
     return (req, res, next) => {
-        console.log(req.user);
-        for(let table of Object.values(tables)) table.user = {user:req.user.id};
+        for(let table of Object.values(tables)) {
+            table.user = req.user.id;
+        }
         req.tables = tables;
+    
         next();
     }
 }

@@ -7,7 +7,7 @@ router.use(addTables({asistance: new Asistance(db, "asistances")}));
 
 router.post("/asistances", async (req, res) => {
     let { studentId, presence } = req.body;
-    await req.tables.asistance.create(studentId, presence);
+    await req.tables.asistance.create({studentId, presence});
     res.status(200).json({ message: "Asistencia creada", presence });
 });
 

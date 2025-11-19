@@ -1,3 +1,4 @@
+-- https://excalidraw.com/#json=rb6fS3JjvmacpKf9le3H2,CfHAWU56u5VVi4kKFtL6nQ
 ALTER DATABASE 
     CHARACTER SET utf8mb4 
     COLLATE utf8mb4_unicode_ci;
