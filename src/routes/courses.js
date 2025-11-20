@@ -4,19 +4,11 @@ import express from "express";
 const router = express.Router();
 const db = await database.connect();
 router.use(addTables({Courses: new Table(db, "courses")}));
-router.get("/courses/years", async (req, res) => {
-    let years = await req.tables.Courses.listDistinct("year");
-    res.status(200).json(years);
-});
 
-router.get("/courses/divisions", async (req, res) => {
-    let divisions = await req.tables.Courses.listDistinct("division");
-    res.status(200).json(divisions);
-});
-
-router.get("/courses/specialties", async (req, res) => {
-    let specialties = await req.tables.Courses.listDistinct("specialty");
-    res.status(200).json(specialties);
+router.post("/courses", async (req, res) => {
+    let { year, division, specialty } = req.body;
+    let courseId = await req.tables.Courses.create({year, division, specialty});
+    res.status(200).json({ message: "Curso creado exitosamente", course: courseId });
 });
 
 router.get("/courses/:year/:division/:specialty", async (req, res) => {

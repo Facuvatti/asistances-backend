@@ -31,7 +31,9 @@ class Table {
         options = {...{"FROM" : "", "WHERE" : "", "JOIN" : "", "GROUP BY" : "", "HAVING" : "", "ORDER BY" : "","fields":"","columns":[]},...options};
         if(!this.user) throw new Error("Es necesario un usuario");
         const verb = action.split(" ")[0];
-        options["WHERE"] = {...options["WHERE"], ...{user : this.user}};
+        let user = {}
+        user[`${this.name}.user`] = this.user
+        options["WHERE"] = {...options["WHERE"], ...user};
         for(let [key, value] of Object.entries(options)) {
             if(key == "JOIN") continue;
             if(["fields","GROUP BY","HAVING" ,"ORDER BY"].includes(key) || ["INSERT", "UPDATE"].includes(verb)) options[key] = this.objectsToString(value, ", ");
@@ -78,11 +80,11 @@ class Table {
     async remove(id) {await this.db.query(this.query("DELETE", {"WHERE": "id = " + id}));}
     async list() {
         const rows = await this.db.query(this.query("SELECT"));
-        return rows.results;
+        return rows;
     }
     async listDistinct(condition) {
         const rows = await this.db.query(this.query("SELECT DISTINCT", {"fields": condition}));
-        return rows.results;
+        return rows;
     }
 }
 
@@ -108,8 +110,8 @@ class Student extends Table {
         
         return { inserts, errors };
     }    
-    async listByCourse(courseId) {
-        const rows = await this.db.query(this.query("SELECT",{fields:"id, lastname, name", "WHERE": courseId, "ORDER BY": "lastname, name"}));
+    async listByCourse(course) {
+        const rows = await this.db.query(this.query("SELECT",{fields:"id, lastname, name", "WHERE": {course}, "ORDER BY": "lastname, name"}));
         return rows.results;
     }
 }
